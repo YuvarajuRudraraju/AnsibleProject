@@ -1,0 +1,183 @@
+**************** Python Modules *********************************************
+---
+- name: Deploy lamp stack application
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install common dependencies
+      yum:
+        name:
+          - libselinux-python
+          - libsemanage-python
+          - firewalld
+        state: installed
+
+************** Install and Configure Database ********************************
+- name: Deploy lamp stack application
+  hosts: lamp-db
+  become: yes
+  tasks:
+    - name: Install MariaDB package
+      yum:
+        name:
+          - mariadb-server
+          - MySQL-python
+        state: installed
+
+    - name: Create Mysql configuration file
+      copy: src=files/my.cnf dest=/etc/my.cnf
+
+    - name: Start MariaDB Service
+      service: name=mariadb state=started enabled=yes
+
+    - name: Start firewalld
+      service: name=firewalld state=started enabled=yes
+
+    - name: insert firewalld rule
+      firewalld: port={{ mysql_port }}/tcp permanent=true state=enabled immediate=yes
+	  
+**********************  Create Application Database ******************************
+
+    - name: Create Application Database
+      mysql_db: name={{ dbname }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ dbuser }} password={{ dbpassword }} priv=*.*:ALL host='172.20.1.100' state=present
+
+    - name: Move db-load-script to db host
+      copy:
+        src: files/db-load-script.sql
+        dest: /tmp/db-load-script.sql
+
+    - name: Load Inventory Data
+      shell: mysql -f < /tmp/db-load-script.sql
+	  
+************************ Install Web Server & Git to download source code *********************
+
+- name: Deploy lamp stack application
+  hosts: lampweb
+  become: yes
+  tasks:
+    - name: Install httpd and php
+      yum:
+        name:
+          - httpd
+          - php
+          - php-mysql
+        state: present
+
+    - name: Install web role specific dependencies
+      yum: name=git state=installed
+
+    - name: Start firewalld
+      service: name=firewalld state=started enabled=yes
+
+    - name: insert firewalld rule for httpd
+      firewalld: port={{ httpd_port }}/tcp permanent=true state=enabled immediate=yes
+
+    - name: Set index.php as the default page
+      tags: "Set index.php as the default page"
+      replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: 'DirectoryIndex index.html'
+        replace: 'DirectoryIndex index.php'
+
+    - name: http service state
+      service: name=httpd state=started enabled=yes
+
+***************************** Copy the index.php from files/ to /var/www/html/ ***********************
+
+    - name: Copy the code from repository
+      git: repo={{ repository }} dest=/var/www/html/  force=yes
+
+    - name: Creates the index.php file
+      copy: src=files/index.php dest=/var/www/html/index.php
+	  
+	  
+
+********************** db-load-script.sql *************************************************************
+USE ecomdb;
+CREATE TABLE products (id mediumint(8) unsigned NOT NULL auto_increment,Name varchar(255) def
+ault NULL,Price varchar(255) default NULL, ImageUrl varchar(255) default NULL,PRIMARY KEY (id
+)) AUTO_INCREMENT=1;
+
+INSERT INTO products (Name,Price,ImageUrl) VALUES ("Laptop","100","c-1.png"),("Drone","200","
+c-2.png"),("VR","300","c-3.png"),("Tablet","50","c-5.png"),("Watch","90","c-6.png"),("Phone C
+overs","20","c-7.png"),("Phone","80","c-8.png"),("Laptop","150","c-4.png");
+
+*********************************************************************************************************
+
+---
+- hosts: node02
+  tasks:
+    - name: Start service nginx
+      service:
+        name: "{{ item }}"
+        state: started
+      with_items:
+        - nginx
+        - mariadb
+
+    - name: clean nginx document root
+      shell: rm -rf /usr/share/nginx/html/*
+
+    - name: download zip
+      unarchive: 
+        src: https://github.com/indercodes/ansible-1100-mock-nginx/raw/master/index.php.zip
+        dest: /usr/share/nginx/html/
+        remote_src: yes
+
+    - name: Update DB details
+      replace:
+        path: /usr/share/nginx/html/index.php
+        regexp: '{{ item.1 }}'
+        replace: '{{ item.2 }}'
+      with_items:
+        - { 1: '\$database.*', 2: '$database = "mydb";' }
+        - { 1: '\$username.*', 2: '$username = "myuser";' }
+        - { 1: '\$password.*', 2: '$password = "mypassword";' }
+
+    - name: restart Nginx
+      service:
+        name: nginx
+        state: restarted
+		
+**************************************************
+
+---
+- hosts: all
+  tasks:
+    - package:
+        name: nginx
+        state: present
+    - copy:
+        src: index.html
+        dest: /usr/share/nginx/html/index.html
+    - service:
+        name: nginx
+        state: started
+		
+*************************************************
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - pip:
+        name: awscli
+        state: latest
+        executable: pip
+*************************************************
+---
+- hosts: all
+  tasks:
+    - package:
+        name: yum-cron
+        state: present
+    - lineinfile:
+        path: /etc/yum/yum-cron.conf
+        regexp: "^update_cmd"
+        line: "update_cmd = security"
+    - service:
+        name: yum-cron
+        state: restarted
+**************************************************

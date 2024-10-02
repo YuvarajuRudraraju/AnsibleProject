@@ -1,0 +1,189 @@
+sudo yum install epel-release -y 
+sudo yum install ansible -y
+
+
+==================== install httpd package ========================
+---
+- hosts: web1
+  tasks:
+  - name: Install httpd package
+    yum: name=httpd state=installed
+	
+==================Install package through wget =============================	
+---
+- hosts: web1
+  tasks:
+  - yum:
+      name: http://mirror.centos.org/centos/7/os/x86_64/Packages/wget-1.14-18.el7_6.1.x86_64.rpm
+      state: present
+
+=================== Downgrade Version===========	  
+---
+- hosts: web1
+  tasks:
+  - yum: name=sudo state=latest
+  - yum: name=vsftpd-2.2.2 state=present allow_downgrade=yes
+
+================ httpd service started =======================================
+
+---
+- name: Start httpd
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Start httpd service
+      service:
+        name: httpd
+        state: started
+  
+===================== httpd service reloaded ========================
+
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: Copy Apache welcome file
+      copy:
+        src: index.html
+        dest: /var/www/html/index.html
+    - service:
+        name: httpd
+        state: reloaded  
+
+=================== Start the httpd service automatically after system reboot ===============
+
+---
+- name: Start httpd
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Start httpd service
+      service:
+        name: httpd
+        state: started
+        enabled: true		
+		
+============================ Port change in the httpd config file and restart service==========
+
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: Make changes in Apache config
+      replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: "^Listen 80"
+        replace: "Listen 443"
+
+    - name: Restart Apache
+      service:
+        name: httpd
+        state: restarted
+
+====================== Install NGINX and Enable the service ================
+
+---
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Start and enable Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+======================= Install Firewalld and Start the service ===================
+
+---
+- hosts: web1
+  tasks:
+   - yum: name=firewalld state=installed
+   - service: name=firewalld state=started
+
+========================= Firewall Add IP in internal zone =========================
+
+---
+- hosts: web1
+  tasks:
+   - firewalld:
+      source: 172.20.1.101
+      state: enabled
+      zone: internal
+      permanent: yes
+      immediate: yes
+   
+========================== Block port at Firewall level =========================
+
+--- 
+- hosts: web1
+  tasks:
+    - firewalld:        
+        port: 161/udp
+        zone: block
+        permanent: yes
+        immediate: yes
+        state: enabled
+
+========================= add firewall rule in internal zone to enable https ================
+
+---
+- hosts: web1
+  tasks:
+    - name: Enable HTTPS for ansible controller
+      firewalld:
+        source: 172.20.1.2
+        service: https
+        zone: internal
+        state: enabled
+        permanent: yes
+
+    - service:
+        name: firewalld
+        state: reloaded		
+		
+============================ Install Apache and Firewall and Enable port number ===================
+
+---
+- hosts: web2
+  tasks:
+    - name: Install pkgs
+      yum:
+        name: httpd, firewalld
+        state: present
+
+    - name: Start/Enable services
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - httpd
+        - firewalld
+
+    - name: Change Apache port
+      replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: "Listen 80"
+        replace: "Listen 8082"
+
+    - name: restart Apache
+      service:
+        name: httpd
+        state: restarted
+
+    - name: Add firewall rule for Apache
+      firewalld:
+        port: 8082/tcp
+        zone: public
+        permanent: yes
+        state: enabled
+        immediate: true		
+		
+================== Inventory file =========================	
+web1 ansible_host=172.20.1.100 ansible_user=ansible ansible_ssh_private_key_file=~/.ssh/ansible
+
