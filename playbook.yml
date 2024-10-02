@@ -1,15 +1,13 @@
 sudo yum install epel-release -y 
 sudo yum install ansible -y
-
-
 ==================== install httpd package ========================
 ---
 - hosts: web1
   tasks:
   - name: Install httpd package
     yum: name=httpd state=installed
-	
-==================Install package through wget =============================	
+
+==================Install package through wget =============================
 ---
 - hosts: web1
   tasks:
@@ -17,7 +15,7 @@ sudo yum install ansible -y
       name: http://mirror.centos.org/centos/7/os/x86_64/Packages/wget-1.14-18.el7_6.1.x86_64.rpm
       state: present
 
-=================== Downgrade Version===========	  
+=================== Downgrade Version===========
 ---
 - hosts: web1
   tasks:
@@ -35,7 +33,7 @@ sudo yum install ansible -y
       service:
         name: httpd
         state: started
-  
+
 ===================== httpd service reloaded ========================
 
 ---
@@ -48,7 +46,7 @@ sudo yum install ansible -y
         dest: /var/www/html/index.html
     - service:
         name: httpd
-        state: reloaded  
+        state: reloaded
 
 =================== Start the httpd service automatically after system reboot ===============
 
@@ -61,8 +59,8 @@ sudo yum install ansible -y
       service:
         name: httpd
         state: started
-        enabled: true		
-		
+        enabled: true
+
 ============================ Port change in the httpd config file and restart service==========
 
 ---
@@ -116,13 +114,13 @@ sudo yum install ansible -y
       zone: internal
       permanent: yes
       immediate: yes
-   
+
 ========================== Block port at Firewall level =========================
 
 --- 
 - hosts: web1
   tasks:
-    - firewalld:        
+    - firewalls:
         port: 161/udp
         zone: block
         permanent: yes
@@ -144,8 +142,8 @@ sudo yum install ansible -y
 
     - service:
         name: firewalld
-        state: reloaded		
-		
+        state: reloaded
+
 ============================ Install Apache and Firewall and Enable port number ===================
 
 ---
@@ -182,8 +180,7 @@ sudo yum install ansible -y
         zone: public
         permanent: yes
         state: enabled
-        immediate: true		
-		
-================== Inventory file =========================	
-web1 ansible_host=172.20.1.100 ansible_user=ansible ansible_ssh_private_key_file=~/.ssh/ansible
+        immediate: true
 
+================== Inventory file =========================
+web1 ansible_host=172.20.1.100 ansible_user=ansible ansible_ssh_private_key_file=~/.ssh/ansible
