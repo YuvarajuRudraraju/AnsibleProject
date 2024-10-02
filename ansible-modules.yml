@@ -35,9 +35,8 @@
 
     - name: insert firewalld rule
       firewalld: port={{ mysql_port }}/tcp permanent=true state=enabled immediate=yes
-	  
-**********************  Create Application Database ******************************
 
+**********************  Create Application Database ******************************
     - name: Create Application Database
       mysql_db: name={{ dbname }} state=present
 
@@ -51,9 +50,8 @@
 
     - name: Load Inventory Data
       shell: mysql -f < /tmp/db-load-script.sql
-	  
-************************ Install Web Server & Git to download source code *********************
 
+************************ Install Web Server & Git to download source code *********************
 - name: Deploy lamp stack application
   hosts: lampweb
   become: yes
@@ -92,8 +90,6 @@
 
     - name: Creates the index.php file
       copy: src=files/index.php dest=/var/www/html/index.php
-	  
-	  
 
 ********************** db-load-script.sql *************************************************************
 USE ecomdb;
@@ -106,7 +102,6 @@ c-2.png"),("VR","300","c-3.png"),("Tablet","50","c-5.png"),("Watch","90","c-6.pn
 overs","20","c-7.png"),("Phone","80","c-8.png"),("Laptop","150","c-4.png");
 
 *********************************************************************************************************
-
 ---
 - hosts: node02
   tasks:
@@ -141,9 +136,7 @@ overs","20","c-7.png"),("Phone","80","c-8.png"),("Laptop","150","c-4.png");
       service:
         name: nginx
         state: restarted
-		
 **************************************************
-
 ---
 - hosts: all
   tasks:
@@ -156,7 +149,7 @@ overs","20","c-7.png"),("Phone","80","c-8.png"),("Laptop","150","c-4.png");
     - service:
         name: nginx
         state: started
-		
+
 *************************************************
 ---
 - hosts: all
